@@ -1,0 +1,62 @@
+variables:
+  GIT_CLEAN_FLAGS: none
+
+stages:
+  - simulate
+  - generate
+  - compile
+  - deploy
+
+simulate-job:
+  tags:
+    - vivado
+  stage: simulate
+  script:
+    - sbt --version
+    - sbt "runMain caximemlib.CAxiMemTransferGen"
+
+generate-job:
+  tags:
+    - vivado
+  stage: generate
+  script:
+    - sbt "runMain caximemlib.CAxiMemTransferGen"
+    - rm -rvf vivadoPrj
+    - source /tools/Xilinx/Vivado/2021.1/settings64.sh
+    - vivado -mode batch -source generate.tcl
+  artifacts:
+    paths:
+      - vivadoPrj
+  only:
+    - master
+
+compile-job:
+  tags:
+    - vivado
+  stage: compile
+  script:
+    - source /tools/Xilinx/Vivado/2021.1/settings64.sh
+    - vivado -mode batch -source compile.tcl vivadoPrj/prj.xpr
+  artifacts:
+    paths:
+      - vivadoPrj/prj.runs/impl_1/*.bit
+      - vivadoPrj/prj.runs/impl_1/*.ltx
+      - vivadoPrj/prj.runs/impl_1/*.rpt
+      - post_utilization.rpt
+      - util_hiel.rpt
+      - post_route_timing_summary.rpt
+  only:
+    - master
+
+deploy-job:
+  tags:
+    - vivado
+  stage: deploy
+  script:
+    - mkdir -p /home/ftpuser/ftp/files/storageB/runner_builds/$CI_PROJECT_PATH/$CI_COMMIT_SHORT_SHA/
+    - cp -rvf vivadoPrj/prj.runs/impl_1/*.bit /home/ftpuser/ftp/files/storageB/runner_builds/$CI_PROJECT_PATH/$CI_COMMIT_SHORT_SHA/
+    - cp -rvf vivadoPrj/prj.runs/impl_1/*.ltx /home/ftpuser/ftp/files/storageB/runner_builds/$CI_PROJECT_PATH/$CI_COMMIT_SHORT_SHA/
+    - cp -rvf vivadoPrj/prj.runs/impl_1/*.rpt /home/ftpuser/ftp/files/storageB/runner_builds/$CI_PROJECT_PATH/$CI_COMMIT_SHORT_SHA/
+    - cp -rvf vivadoPrj/*.xsa /home/ftpuser/ftp/files/storageB/runner_builds/$CI_PROJECT_PATH/$CI_COMMIT_SHORT_SHA/
+  only:
+    - master
