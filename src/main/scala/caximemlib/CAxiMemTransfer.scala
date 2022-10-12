@@ -39,7 +39,7 @@ case class CAxiMemTransferH2C(
   h2c_ctrl.size.init(0)
 
   // Axi and memory interface
-  h2c_bus.writeMemMultiWord(h2c_mem, h2c_ctrl.getBitsWidth / 8)
+  h2c_bus.writeMemWordAligned(h2c_mem, h2c_ctrl.getBitsWidth / 8)
 
   // Read counter
   val h2c_cnt = Counter(
@@ -109,7 +109,7 @@ case class CAxiMemTransferC2H(
   c2h_ctrl.size.init(0)
 
   // Axi and memory interface
-  c2h_bus.readSyncMemMultiWord(c2h_mem, c2h_ctrl.getBitsWidth / 8)
+  c2h_bus.readSyncMemWordAligned(c2h_mem, c2h_ctrl.getBitsWidth / 8)
 
   // Write counter
   val c2h_cnt = Counter(
@@ -235,7 +235,8 @@ object CAxiMemTransferSim extends App {
       clock: Handle[ClockDomain],
       bus: Axi4,
       addr: BigInt,
-      data: BigInt
+      data: BigInt,
+      strb: BigInt
   ) {
     bus.aw.valid #= true
     bus.aw.addr #= addr
@@ -244,7 +245,7 @@ object CAxiMemTransferSim extends App {
     bus.aw.size #= 2
     bus.w.valid #= true
     bus.w.data #= data
-    bus.w.strb #= 0xf
+    bus.w.strb #= strb
     bus.w.last #= true
     clock.waitSampling(1)
     bus.aw.valid #= false
@@ -400,15 +401,17 @@ object CAxiMemTransferSim extends App {
 
     StreamReadyRandomizer(dut.io.h2c_axis, dut.clockDomain)
 
-    WriteData(dut.clockDomain, dut.io.h2c_axi, 0, 0)
+    WriteData(dut.clockDomain, dut.io.h2c_axi, 0, 0, 0xf)
 
-    WriteData(dut.clockDomain, dut.io.h2c_axi, 4, 0x03020100)
-    WriteData(dut.clockDomain, dut.io.h2c_axi, 8, 0x07060504)
-    WriteData(dut.clockDomain, dut.io.h2c_axi, 12, 0x0b0a0908)
-    WriteData(dut.clockDomain, dut.io.h2c_axi, 16, 0x0f0e0d0c)
-    WriteData(dut.clockDomain, dut.io.h2c_axi, 20, 0x13121110)
+    WriteData(dut.clockDomain, dut.io.h2c_axi, 4, 0x03020100, 0xf)
+    WriteData(dut.clockDomain, dut.io.h2c_axi, 8, 0x07060504, 0xf)
+    WriteData(dut.clockDomain, dut.io.h2c_axi, 12, 0x0b0a0908, 0xf)
+    WriteData(dut.clockDomain, dut.io.h2c_axi, 16, 0x0f0e0d0c, 0xf)
+    WriteData(dut.clockDomain, dut.io.h2c_axi, 20, 0x00000010, 0x1)
+    WriteData(dut.clockDomain, dut.io.h2c_axi, 21, 0x00001100, 0x2)
+    WriteData(dut.clockDomain, dut.io.h2c_axi, 22, 0x00120000, 0x4)
 
-    WriteData(dut.clockDomain, dut.io.h2c_axi, 0, 0x00001201)
+    WriteData(dut.clockDomain, dut.io.h2c_axi, 0, 0x00001201, 0xf)
 
     dut.io.h2c_axis.ready #= false
 
@@ -423,10 +426,10 @@ object CAxiMemTransferSim extends App {
     dut.clockDomain.waitSampling(20)
     dut.io.h2c_axis.ready #= true
 
-    WriteData(dut.clockDomain, dut.io.c2h_axi, 0, 0x00000001)
+    WriteData(dut.clockDomain, dut.io.c2h_axi, 0, 0x00000001, 0xf)
     WriteInStream(dut.io.c2h_axis, dut.clockDomain, 66)
 
-    AxiRead(dut.clockDomain, dut.io.c2h_axi, 4)
+    AxiRead(dut.clockDomain, dut.io.c2h_axi, 68)
 
     dut.clockDomain.waitSampling(2000)
   }
